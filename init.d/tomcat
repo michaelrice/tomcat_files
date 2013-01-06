@@ -1,0 +1,94 @@
+#!/bin/bash
+# init file for tomcat by Michael Rice
+#
+# chkconfig: - 85 15
+# description: Tomcat Servelet
+#
+# processname: /opt/tomcat7/bin/jsvc
+# config: /opt/tomcat7/conf/server.xml
+# pidfile: /var/run/tomcat.pid
+
+# source function library
+. /etc/init.d/functions
+. /etc/sysconfig/network
+
+[ ${NETWORKING} = "no" ] && exit 0
+TOMCAT_USER=tomcat
+CATALINA_PID=/var/run/tomcat/tomcat.pid
+TOMCAT_LOCK_FILE=/var/lock/subsys/tomcat
+
+[ -f /etc/profile.d/tomcat.sh ] && . /etc/profile.d/tomcat.sh
+[ -f /etc/profile.d/java.sh ] && . /etc/profile.d/java.sh
+
+if [ -z "$CATALINA_HOME" ]; then
+  echo ""
+  echo "The CATALINA_HOME environment variable is not set."
+  echo "Please set the environment variable in /etc/profile.d"
+  echo "or bash_profile."
+  echo ""
+  exit 1
+fi
+
+if [ -z "$JAVA_HOME" ]; then
+  echo ""
+  echo "The JAVA_HOME environment variable is not set."
+  echo "Please set the environment variable in /etc/profile.d"
+  echo "or bash_profile.  No Java, no tomcat!"
+  echo ""
+  exit 1
+fi
+
+if [ -z "$JRE_HOME" ]; then
+  echo ""
+  echo "The JRE_HOME environment variable is not set."
+  echo "Please set the environment variable in /etc/profile.d"
+  echo "or bash_profile.  No Java, no tomcat!"
+  echo ""
+  exit 1
+fi
+
+JSVC_BIN=${CATALINA_HOME}/bin/jsvc
+
+case "$1" in
+
+    start)
+        # Start Tomcat
+        echo "Starting service Tomcat Servlet Container "
+        if [ -f ${CATALINA_PID} ]; then
+            echo " - Warning:  daemon already running. "
+            echo " - Warning: ${CATALINA_PID} exists.  "
+            exit
+        fi
+        su -l ${TOMCAT_USER} -m -c "${JSVC_BIN} -user ${TOMCAT_USER} -jvm server -cp ${CATALINA_HOME}/bin/bootstrap.jar:${CATALINA_HOME}/bin/tomcat-juli.jar -outfile ${CATALINA_HOME}/logs/catalina.out -errfile ${CATALINA_HOME}/logs/catalina.err  -pidfile ${CATALINA_PID} -Dcatalina.home=${CATALINA_HOME} -Dcatalina.tmpdir=${CATALINA_TMPDIR} -wait 10 $CATALINA_OPTS org.apache.catalina.startup.Bootstrap"
+        chown -R ${TOMCAT_USER}. ${CATALINA_HOME}/
+
+    ;;
+
+    stop)
+        echo "Stopping service Tomcat Servlet Container "
+        ${JSVC_BIN} \
+        -stop \
+        -pidfile $CATALINA_PID \
+        org.apache.catalina.startup.Bootstrap
+    ;;
+
+    restart|reload|force-reload)
+        $0 stop
+        $0 start
+    ;;
+
+    status)
+        echo "Checking the status of Tomcat Servlet Container "
+        if [ -f ${CATALINA_PID} ]; then
+            echo "Tomcat is running. `cat ${CATALINA_PID}`"
+        else
+            echo "Tomcat is not running"
+        fi
+        exit
+    ;;
+
+    *)
+        echo "Usage: $0 {start|stop|restart|reload|force-reload|status}"
+        exit 1
+    ;;
+esac
